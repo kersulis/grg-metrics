@@ -1,11 +1,11 @@
-# tests take ~20s on a desktop
-# make sure to update nesta_dir below!
-nesta_dir = '../../NESTA_GRGv1.0'
+# tests take ~1min on a desktop
+# update nesta_dir below!
+nesta_dir = '../../NESTA_GRGv1.1'
 
 import os, sys, json, collections
 import numpy as np
 sys.path.append('C:\\Users\\J K\\Google Drive\\GridChar\\grg-metrics')
-from grg_metrics import grg2nx
+from grg_metrics.nx import grg2nx
 import networkx as nx
 
 def find_files():
@@ -25,11 +25,10 @@ def subcomponents(comp):
         result[t] = types.count(t)
     return result
 
-"""
-for all of NESTA: show types and frequencies of elements in components lists,
-substation_components lists, and voltage_level_components lists
-"""
 def test_components():
+    """for all of NESTA: show types and frequencies of elements in components lists,
+    substation_components lists, and voltage_level_components lists
+    """
     nesta_components = collections.Counter()
     nesta_substation = collections.Counter()
     nesta_vlevel = collections.Counter()
@@ -53,12 +52,13 @@ def test_components():
     assert set(nesta_substation.keys()) == set(['two_winding_transformer', 'voltage_level'])
     assert set(nesta_vlevel.keys()) == set(['bus', 'generator', 'load', 'shunt', 'synchronous_condenser'])
 
-"""
-Ensure assumptions related to bus definitions and references in GRG docs
-are valid. Verify grg2nx() is working properly.
-"""
 def test_graphs():
+    """Ensure assumptions related to bus definitions and references in GRG docs
+    are valid. Verify grg2nx() is working properly.
+    """
     for file_name in file_names:
+        print(file_name)
+
         with open(file_name, 'r') as file:
             data = json.load(file)
             bus_references = []
@@ -93,8 +93,8 @@ def test_graphs():
                 assert b in bus_definitions
             # every defined bus should be referenced:
             for b in bus_definitions:
-                # if file_name.split('\\')[-1] != 'nesta_case3375wp_mp.json':
-                assert b in bus_references
+                if file_name[-18:] != 'case3375wp_mp.json':
+                    assert b in bus_references
 
 def test_data():
     assert file_names[0].split('\\')[-1] == 'nesta_case118_ieee.json'
@@ -114,6 +114,6 @@ def test_data():
     'bus_117',
     'bus_118'
     ]
-    assert G.node['bus_002']['id'] == 'bus_450'
+    assert G.node['bus_002']['id'] == 'bus_2'
     assert len(G.edges()) == 179
     assert G.edge['bus_005']['bus_003']['voltage_level_1_id'] == 'voltage_level_3'
