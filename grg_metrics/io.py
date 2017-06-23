@@ -1,4 +1,4 @@
-import json
+import json, os
 
 def parse_grg_case_file(grg_file_name):
     '''opens the given path and parses it as json data
@@ -13,3 +13,11 @@ def parse_grg_case_file(grg_file_name):
         grg_data.close()
 
     return data
+
+def find_files(dir):
+    files = []
+    for file_name in os.listdir(dir):
+        if file_name.endswith('.json'):
+            files.append(os.path.join(dir, file_name))
+
+    return files
