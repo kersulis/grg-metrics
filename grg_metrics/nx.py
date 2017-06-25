@@ -67,19 +67,19 @@ def grg2nx(data):
 
     for identifier, component in walk_components(data['network']['components']):
         if component['type'] in ['bus', 'busbar', 'logical_bus']:
-            G.add_node(identifier)
+            G.add_node(identifier, type=component['type'])
             for p in bus_props:
                 if p in component:
                     G.node[identifier][p] = component[p]
         elif component['type'] == 'ac_line':
             f, t = component['link_1'], component['link_2']
-            G.add_edge(f,t)
+            G.add_edge(f,t, type=component['type'])
             for p in line_props:
                 if p in component:
                     G.edge[f][t][p] = component[p]
         elif component['type'] == 'two_winding_transformer':
             f, t = component['link_1'], component['link_2']
-            G.add_edge(f,t)
+            G.add_edge(f,t, type=component['type'])
             for p in transformer_props:
                 if p in component:
                     G.edge[f][t][p] = component[p]
