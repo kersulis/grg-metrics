@@ -15,7 +15,7 @@ def walk_components(grg_data):
                     for nested_key, nested_value in walk_components(value[key]):
                         yield nested_key, nested_value
 
-def grg2nx(data):
+def grg2nx(data, remove_stepup_transformers=False):
     """Given a GRGv1.0 JSON document, return a networkx graph.
 
     Properties embedded in the graph:
@@ -60,6 +60,11 @@ def grg2nx(data):
     ]
     transformer_props = ['id', 'voltage_level_1_id', 'voltage_level_2_id']
 
+    # for removing step-up transformers
+    transformer_lowside_buses = []
+    generator_buses = []
+    load_buses = []
+
     # embed network properties
     for p in network_props:
         if p in data['network']:
@@ -80,7 +85,17 @@ def grg2nx(data):
         elif component['type'] == 'two_winding_transformer':
             f, t = component['link_1'], component['link_2']
             G.add_edge(f,t, type=component['type'])
+            transformer_lowside_buses.append(t)
             for p in transformer_props:
                 if p in component:
                     G.edge[f][t][p] = component[p]
+        elif component['type'] == 'generator':
+            generator_buses.append(component['link'])
+        elif component['type'] == 'load':
+            load_buses.append(component['link'])
+
+    if remove_stepup_transformers:
+        degree_one_buses = [k for k, v in nx.degree(G).items() if v == 1]
+        stepup_buses = list((set(transformer_lowside_buses) & set(generator_buses) & set(degree_one_buses)) - set(load_buses))
+        G.remove_nodes_from(stepup_buses)
     return G
