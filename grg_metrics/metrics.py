@@ -1,47 +1,24 @@
 import networkx as nx
+import pandas as pd
+import numpy as np
 
-def node_degree_distribution(graphs, metrics):
-    """Add degree distribution to metrics.
-    (Modifies input `metrics`.)
-    """
-    for G in graphs:
-        Gid = G.graph['id']
-        if Gid not in metrics:
-            metrics[Gid] = {}
-        metrics[Gid]['node_degrees'] = list(nx.degree(G).values())
-    return metrics
+def node_degree_distribution(graphs):
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = [np.flipud(np.sort(np.array(list(nx.degree(G).values()))))
+               for G in graphs]
+    return pd.Series(metrics, index=Gids, name='node_degree_distribution')
 
-def degree_assortativity(graphs, metrics):
-    """Add degree assortativity coefficient to metrics.
-    (Modifies input `metrics`.)
-    """
-    for G in graphs:
-        Gid = G.graph['id']
-        if Gid not in metrics:
-            metrics[Gid] = {}
-        metrics[Gid]['degree_assortativity'] = nx.degree_assortativity_coefficient(G)
-    return metrics
+def degree_assortativity(graphs):
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = [nx.degree_assortativity_coefficient(G) for G in graphs]
+    return pd.Series(metrics, index=Gids, name='degree_assortativity')
 
-def load_centrality(graphs, metrics):
-    """Add load centrality to metrics.
-    (Modifies input `metrics`.)
-    Takes a little while to run.
-    """
-    for G in graphs:
-        Gid = G.graph['id']
-        if Gid not in metrics:
-            metrics[Gid] = {}
-        metrics[Gid]['load_centrality'] = nx.load_centrality(G)
-    return metrics
+def rich_club(graphs):
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = [nx.rich_club_coefficient(G, normalized=False) for G in graphs]
+    return pd.Series(metrics, index=Gids, name='rich_club')
 
-def degree_centrality(graphs, metrics):
-    """Add degree centrality to metrics.
-    (Modifies input `metrics`.)
-    Takes a little while to run.
-    """
-    for G in graphs:
-        Gid = G.graph['id']
-        if Gid not in metrics:
-            metrics[Gid] = {}
-        metrics[Gid]['degree_centrality'] = nx.degree_centrality(G)
-    return metrics
+def load_centrality(graphs):
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = [nx.load_centrality(G) for G in graphs]
+    return pd.Series(metrics, index=Gids, name='load_centrality')
