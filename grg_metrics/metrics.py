@@ -29,6 +29,66 @@ def clustering(graphs):
                for G in graphs]
     return pd.Series(metrics, index=Gids, name='node_degree_distribution')
 
+def check_max_degree(metrics):
+    """Warning: max. degree greater than 3.7*log10(x) + 3.4.
+    Error: max. degree greater than 15.
+
+    Input `metrics` must have columns 'max_degree' and 'nodes'.
+    """
+    error = metrics.max_degree > 15
+    warning = (metrics.max_degree > 3.7*np.log10(metrics.nodes) + 3.4) & ~error
+
+    msg = pd.Series(['error' if error[i] else ('warning' if warn[i] else '')
+        for i in range(len(error))], metrics.index)
+    return msg
+
+def check_mean_degree(metrics):
+    """Warning: mean degree above 3.0.
+    Error: mean degree above 4.0.
+    """
+    error = metrics.mean_degree > 4
+    warning = (metrics.mean_degree > 3) & ~error
+    msg = pd.Series(['error' if error[i] else ('warning' if warning[i] else '')
+        for i in range(len(error))], metrics.index)
+    return msg
+
+def check_median_degree(metrics):
+    """Warning: median degree = 3 and nodes > 200.
+    Error: median degree > 3.
+    """
+    error = metrics.median_degree > 3
+    warning = (metrics.median_degree == 3) & (metrics.nodes > 200) & ~error
+    msg = pd.Series(['error' if error[i] else ('warning' if warning[i] else '')
+        for i in range(len(error))], metrics.index)
+    return msg
+
+def check_degree_assortativity(metrics):
+    """Warning: outside [-0.3, 0.15].
+    Error: outside [-0.5, 0.3].
+    """
+    error = (metrics.degree_assortativity < -0.5) | (metrics.degree_assortativity > 0.3)
+    warning = (metrics.degree_assortativity < -0.3) | (metrics.degree_assortativity > 0.15) & ~error
+    msg = pd.Series(['error' if error[i] else ('warning' if warning[i] else '')
+        for i in range(len(error))], metrics.index)
+    return msg
+
+def check_rich_club(metrics):
+    """Warning: let K_0.8 be the set of degrees with
+    rich club coefficients >= 0.8. Warn when there are
+    at least 10 nodes with those degrees.
+    """
+    rc_nodes = []
+    for i, rc in enumerate(metrics.rich_club):
+        K08 = [k for k, v in rc.items() if v >= 0.8]
+        if K08:
+            rc_nodes.append(sum(metrics.node_degree_distribution[i] >= np.min(K08)))
+        else:
+            rc_nodes.append(0)
+    warning = np.array(rc_nodes) >= 10
+    msg = pd.Series(['warning' if warning[i] else ''
+        for i in range(len(error))], metrics.index)
+    return msg
+
 def nesta_v11_representative():
     """Returns a representative sample of 33 NESTA GRG v1.1 networks,
     sorted by size.
