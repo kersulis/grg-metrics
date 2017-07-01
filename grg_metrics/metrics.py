@@ -23,6 +23,12 @@ def load_centrality(graphs):
     metrics = [nx.load_centrality(G) for G in graphs]
     return pd.Series(metrics, index=Gids, name='load_centrality')
 
+def clustering(graphs):
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = [np.flipud(np.sort(np.array(list(nx.clustering(G).values()))))
+               for G in graphs]
+    return pd.Series(metrics, index=Gids, name='node_degree_distribution')
+
 def nesta_v11_representative():
     """Returns a representative sample of 33 NESTA GRG v1.1 networks,
     sorted by size.
@@ -40,6 +46,7 @@ def nesta_v11_representative():
     'nesta_case1951_rte',
     'nesta_case1397sp_eir',
     'nesta_case1354_pegase',
+    'case_403_rte',
     'nesta_case300_ieee',
     'nesta_case240_wecc',
     'nesta_case189_edin',
