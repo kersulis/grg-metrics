@@ -30,13 +30,13 @@ def clustering(graphs):
     return pd.Series(metrics, index=Gids, name='node_degree_distribution')
 
 def check_max_degree(metrics):
-    """Warning: max. degree greater than 3.7*log10(x) + 3.4.
-    Error: max. degree greater than 15.
+    """Warning: max. degree greater than 10.
+    Error: max. degree greater than 3.7*log10(x) + 3.4.
 
     Input `metrics` must have columns 'max_degree' and 'nodes'.
     """
-    error = metrics.max_degree > 15
-    warning = (metrics.max_degree > 3.7*np.log10(metrics.nodes) + 3.4) & ~error
+    error = metrics.max_degree > 3.7*np.log10(metrics.nodes) + 3.4
+    warning = (metrics.max_degree > 10) & ~error
 
     msg = pd.Series(['error' if error[i] else ('warning' if warning[i] else '')
         for i in range(len(error))], metrics.index)
