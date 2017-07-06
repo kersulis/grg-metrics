@@ -1,5 +1,4 @@
 import os, json
-import grg_grgdata
 import networkx as nx
 import numpy as np
 
