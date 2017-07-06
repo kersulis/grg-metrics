@@ -77,7 +77,7 @@ def compute_metrics(x):
     metrics['clustering'] = clustering(graphs)
     return metrics
 
-def check_max_degree(metrics):
+def check_max_degree(metrics, describe=True):
     """Warning: max. degree greater than 10.
     Error: max. degree greater than 3.7*log10(x) + 3.4.
 
@@ -86,64 +86,113 @@ def check_max_degree(metrics):
     error = metrics.max_degree > 3.7*np.log10(metrics.nodes) + 3.4
     warning = (metrics.max_degree > 10) & ~error
 
-    msg = pd.Series(['error' if error[i] else ('warning' if warning[i] else '')
-        for i in range(len(error))], metrics.index)
+    msg = pd.Series(index=metrics.index)
+    for i in msg.index:
+        if error.loc[i]:
+            if describe:
+                msg.loc[i] = "Error: \'%s\' has maximum degree %d, which is too large for a network with %d nodes." % (i, metrics.max_degree[i], metrics.nodes[i])
+            else:
+                msg.loc[i] = "Error"
+        elif warning.loc[i]:
+            if describe:
+                msg.loc[i] = "Warning: \'%s\' has maximum degree %d. Nodes of such high degree are rare in real power systems." % (i, metrics.max_degree[i])
+            else:
+                msg.loc[i] = "Warning"
     return msg
 
-def check_mean_degree(metrics):
+def check_mean_degree(metrics, describe=True):
     """Warning: mean degree above 3.0.
     Error: mean degree above 4.0.
     """
     error = metrics.mean_degree > 4
     warning = (metrics.mean_degree > 3) & ~error
-    msg = pd.Series(['error' if error[i] else ('warning' if warning[i] else '')
-        for i in range(len(error))], metrics.index)
+    msg = pd.Series(index=metrics.index)
+    for i in msg.index:
+        if error.loc[i]:
+            if describe:
+                msg.loc[i] = "Error: \'%s\' has mean degree %.2f; above 4 is unrealistic." % (i, metrics.mean_degree[i])
+            else:
+                msg.loc[i] = "Error"
+        elif warning.loc[i]:
+            if describe:
+                msg.loc[i] = "Warning: \'%s\' has mean degree %.2f; above 3 is rare." % (i, metrics.mean_degree[i])
+            else:
+                msg.loc[i] = "Warning"
     return msg
 
-def check_median_degree(metrics):
+def check_median_degree(metrics, describe=True):
     """Warning: median degree = 3 and nodes > 200.
     Error: median degree > 3.
     """
     error = metrics.median_degree > 3
     warning = (metrics.median_degree == 3) & (metrics.nodes > 200) & ~error
-    msg = pd.Series(['error' if error[i] else ('warning' if warning[i] else '')
-        for i in range(len(error))], metrics.index)
+    msg = pd.Series(index=metrics.index)
+    for i in msg.index:
+        if error.loc[i]:
+            if describe:
+                msg.loc[i] = "Error: \'%s\' has median degree %d; above 3 is unrealistic." % (i, metrics.median_degree[i])
+            else:
+                msg.loc[i] = "Error"
+        elif warning.loc[i]:
+            if describe:
+                msg.loc[i] = "Warning: \'%s\' has median degree %d, which is rare for networks larger than 200 buses." % (i, metrics.median_degree[i])
+            else:
+                msg.loc[i] = "Warning"
     return msg
 
-def check_degree_assortativity(metrics):
+def check_degree_assortativity(metrics, describe=True):
     """Warning: outside [-0.3, 0.15].
     Error: outside [-0.5, 0.3].
     """
     error = (metrics.degree_assortativity < -0.5) | (metrics.degree_assortativity > 0.3)
     warning = (metrics.degree_assortativity < -0.3) | (metrics.degree_assortativity > 0.15) & ~error
-    msg = pd.Series(['error' if error[i] else ('warning' if warning[i] else '')
-        for i in range(len(error))], metrics.index)
+    msg = pd.Series(index=metrics.index)
+    for i in msg.index:
+        if error.loc[i]:
+            if describe:
+                msg.loc[i] = "Error: \'%s\' has degree assortativity coefficient %.2f, more than 2 standard deviations from the NESTA mean of -0.06." % (i, metrics.degree_assortativity[i])
+            else:
+                msg.loc[i] = "Error"
+        elif warning.loc[i]:
+            if describe:
+                msg.loc[i] = "Warning: \'%s\' has degree assortativity coefficient %.2f, which is at least a standard deviation from the NESTA mean of -0.06." % (i, metrics.degree_assortativity[i])
+            else:
+                msg.loc[i] = "Warning"
     return msg
 
-def check_rich_club(metrics):
+def check_rich_club(metrics, describe=True):
     """Warning: let K_0.8 be the set of degrees with
     rich club coefficients >= 0.8. Warn when there are
     at least 10 nodes with those degrees.
     """
-    rc_nodes = []
+    K08_mins = []
+    rc_nodes = pd.Series(index=metrics.index)
     for i, rc in enumerate(metrics.rich_club):
         K08 = [k for k, v in rc.items() if v >= 0.8]
         if K08:
-            rc_nodes.append(sum(metrics.node_degree_distribution[i] >= np.min(K08)))
+            K08_mins.append(np.min(K08))
+            rc_nodes.iloc[i] = sum(metrics.node_degree_distribution[i] >= np.min(K08))
         else:
-            rc_nodes.append(0)
-    warning = np.array(rc_nodes) >= 10
-    msg = pd.Series(['warning' if warning[i] else ''
-        for i in range(len(warning))], metrics.index)
+            K08_mins.append(0)
+            rc_nodes.iloc[i] = 0
+    warning = rc_nodes >= 10
+    msg = pd.Series(index=metrics.index)
+    for idx, i in enumerate(msg.index):
+        if warning.loc[i]:
+            if describe:
+                msg.loc[i] = "Warning: \'%s\' has a rich club consisting of %d nodes with degree above %d." % (i, rc_nodes[idx], K08_mins[idx])
+            else:
+                msg.loc[i] = "Warning"
     return msg
 
-def analyze_metrics(metrics):
+def analyze_metrics(metrics, describe=True):
     msg = pd.DataFrame(index=metrics.index)
-    msg['max_degree'] = check_max_degree(metrics)
-    msg['mean_degree'] = check_mean_degree(metrics)
-    msg['median_degree'] = check_median_degree(metrics)
-    msg['degree_assortativity'] = check_degree_assortativity(metrics)
-    msg['rich_club'] = check_rich_club(metrics)
+    msg['max_degree'] = check_max_degree(metrics, describe=describe)
+    msg['mean_degree'] = check_mean_degree(metrics, describe=describe)
+    msg['median_degree'] = check_median_degree(metrics, describe=describe)
+    msg['degree_assortativity'] = check_degree_assortativity(metrics, describe=describe)
+    msg['rich_club'] = check_rich_club(metrics, describe=describe)
+    msg = msg.fillna('')
     return msg
 
 def nesta_v11_representative():
