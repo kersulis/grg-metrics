@@ -1,6 +1,7 @@
 import networkx as nx
 import pandas as pd
 import numpy as np
+import grg_metrics
 
 def node_degree_distribution(graphs):
     Gids = [G.graph['id'] for G in graphs]
@@ -28,6 +29,53 @@ def clustering(graphs):
     metrics = [np.flipud(np.sort(np.array(list(nx.clustering(G).values()))))
                for G in graphs]
     return pd.Series(metrics, index=Gids, name='node_degree_distribution')
+
+def compute_metrics(x):
+    """
+        metrics = compute_metrics(dir_path)
+        metrics = compute_metrics(list_of_file_paths)
+        metrics = compute_metrics(list_of_networkx_graphs)
+    Return a DataFrame with metric data.
+    """
+    if isinstance(x, str):
+        # assume input is directory
+        files = grg_metrics.find_files(x)
+        graphs = []
+        for file_name in files:
+            graphs.append(grg_metrics.grg2nx(grg_metrics.parse_grg_case_file(file_name)))
+    elif isinstance(x, list):
+        if isinstance(x[0], str) and (x[0][-5:] == '.json'):
+            # assume list of file paths
+            graphs = []
+            for file_name in x:
+                data = grg_metrics.io.parse_grg_case_file(file_name)
+                graphs.append(grg_metrics.grg2nx(data))
+        elif isinstance(x[0], nx.Graph):
+            # assume list of graph objects
+            graphs = x
+        else:
+            print('A list input must consist of file paths or networkx graphs.')
+            return []
+    else:
+        print('Input should be a directory path, list of file paths, or list of networkx graphs.')
+        return []
+
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = pd.DataFrame(pd.Series(graphs, index=Gids, name='graph'))
+    metrics['nodes'] = [len(G.nodes()) for G in metrics.graph]
+    metrics['edges'] = [len(G.edges()) for G in metrics.graph]
+    bins = [0, 20, 1000, 5000, np.inf]
+    labels = ['tiny', 'small', 'medium', 'large']
+    size_groups = pd.cut(metrics.nodes, bins, labels=labels)
+    metrics['size'] = size_groups
+    metrics['node_degree_distribution'] = node_degree_distribution(graphs)
+    metrics['max_degree'] = metrics['node_degree_distribution'].apply(max)
+    metrics['mean_degree'] = metrics['node_degree_distribution'].apply(np.mean)
+    metrics['median_degree'] = metrics['node_degree_distribution'].apply(np.median)
+    metrics['degree_assortativity'] = degree_assortativity(graphs)
+    metrics['rich_club'] = rich_club(graphs)
+    metrics['clustering'] = clustering(graphs)
+    return metrics
 
 def check_max_degree(metrics):
     """Warning: max. degree greater than 10.
@@ -87,6 +135,15 @@ def check_rich_club(metrics):
     warning = np.array(rc_nodes) >= 10
     msg = pd.Series(['warning' if warning[i] else ''
         for i in range(len(warning))], metrics.index)
+    return msg
+
+def analyze_metrics(metrics):
+    msg = pd.DataFrame(index=metrics.index)
+    msg['max_degree'] = check_max_degree(metrics)
+    msg['mean_degree'] = check_mean_degree(metrics)
+    msg['median_degree'] = check_median_degree(metrics)
+    msg['degree_assortativity'] = check_degree_assortativity(metrics)
+    msg['rich_club'] = check_rich_club(metrics)
     return msg
 
 def nesta_v11_representative():
