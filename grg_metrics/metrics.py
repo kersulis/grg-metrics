@@ -38,7 +38,7 @@ def check_max_degree(metrics):
     error = metrics.max_degree > 15
     warning = (metrics.max_degree > 3.7*np.log10(metrics.nodes) + 3.4) & ~error
 
-    msg = pd.Series(['error' if error[i] else ('warning' if warn[i] else '')
+    msg = pd.Series(['error' if error[i] else ('warning' if warning[i] else '')
         for i in range(len(error))], metrics.index)
     return msg
 
@@ -86,7 +86,7 @@ def check_rich_club(metrics):
             rc_nodes.append(0)
     warning = np.array(rc_nodes) >= 10
     msg = pd.Series(['warning' if warning[i] else ''
-        for i in range(len(error))], metrics.index)
+        for i in range(len(warning))], metrics.index)
     return msg
 
 def nesta_v11_representative():
