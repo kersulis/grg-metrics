@@ -1,6 +1,8 @@
 import os, json
 import networkx as nx
 import numpy as np
+import warnings
+warnings.simplefilter('once')
 
 def walk_components(grg_data):
     """Recursively walk grg components.
@@ -92,6 +94,8 @@ def grg2nx(data, remove_stepup_transformers=False):
             generator_buses.append(component['link'])
         elif component['type'] == 'load':
             load_buses.append(component['link'])
+        elif component['type'] == 'switch':
+            warnings.warn('Switch found; please use the bus-branch form of your network to ensure accuracy.')
 
     if remove_stepup_transformers:
         degree_one_buses = [k for k, v in nx.degree(G).items() if v == 1]
