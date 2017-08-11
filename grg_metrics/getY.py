@@ -2,12 +2,14 @@ import numpy as np
 import scipy as sp
 import grg_metrics
 
-def getY(grg_data):
+def getY(grg_data, dc=False):
     """Given a GRGv1.0 JSON document, return the admittance matrix.
 
     Translated from MATPOWER. Checked against MATPOWER output for
     several networks. Maximum elementwise difference was ~6%.
     Networkx verified isomorphism as well.
+
+    If `dc` is True, only the imaginary portion of Y is returned.
     """
 
     f, t, Zs, b1, b2, tap, shift = get_Ybus_vectors(grg_data)
@@ -34,8 +36,11 @@ def getY(grg_data):
     Yt = sp.sparse.csc_matrix((np.concatenate((Ytf, Ytt)), (i, np.concatenate((f, t)))), shape=(nl, nb))
 
     # build Ybus
-    Ybus = np.dot(Cf.T, Yf) + np.dot(Ct.T, Yt) + sp.sparse.csc_matrix((Ysh, (range(nb), range(nb))), shape=(nb, nb))
-    return Ybus
+    Ybus = np.dot(Cf.T, Yf) + np.dot(Ct.T, Yt) + sp.sparse.csc_matrix((Ysh, (range(nb), range(nb))), shape=(nb, nb)).tocsc()
+    if dc:
+        return sp.sparse.csc_matrix(np.imag(Ybus.todense())), buses
+    else:
+        return Ybus, buses
 
 def get_Ybus_vectors(grg_data):
     """
@@ -63,12 +68,12 @@ def get_Ybus_vectors(grg_data):
             r, x = imp['resistance'], imp['reactance']
             if not isinstance(r, float):
                 lb, ub = extract_var(r['var'])
-                assert lb == ub
-                r = lb
+                # assert lb == ub
+                r = (lb + ub)/2
             if not isinstance(x, float):
                 lb, ub = extract_var(x['var'])
-                assert lb == ub
-                x = lb
+                # assert lb == ub
+                x = (lb + ub)/2
             return r + 1j*x
 
         def extract_b(shunt):
@@ -105,7 +110,7 @@ def get_Ybus_vectors(grg_data):
             shift = c['angle_shift']
             if not isinstance(shift, float):
                 lb, ub = extract_var(shift['var'])
-                assert lb == ub
+                # assert lb == ub
                 shift = lb
 
         return f, t, Zs, b1, b2, tap, shift
