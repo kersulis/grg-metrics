@@ -25,6 +25,7 @@ def grg2nx(data, remove_stepup_transformers=False):
         - subtype
         - per_unit
         - description (optional)
+        - voltage level information
     - bus
         - type (can be 'bus', 'busbar', or 'logical_bus')
         - id
@@ -67,6 +68,7 @@ def grg2nx(data, remove_stepup_transformers=False):
     load_buses = []
 
     # embed network properties
+    G.graph['voltage_levels'] = dict()
     for p in network_props:
         if p in data['network']:
             G.graph[p] = data['network'][p]
@@ -96,6 +98,8 @@ def grg2nx(data, remove_stepup_transformers=False):
             load_buses.append(component['link'])
         elif component['type'] == 'switch':
             warnings.warn('Switch found; please use the bus-branch form of your network to ensure accuracy.')
+        elif component['type'] == 'voltage_level':
+            G.graph['voltage_levels'][component['id']] = component['voltage']
 
     if remove_stepup_transformers:
         degree_one_buses = [k for k, v in nx.degree(G).items() if v == 1]
