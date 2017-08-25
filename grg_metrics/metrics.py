@@ -30,7 +30,19 @@ def clustering(graphs):
                for G in graphs]
     return pd.Series(metrics, index=Gids, name='node_degree_distribution')
 
-def compute_metrics(x):
+def average_clustering(graphs):
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = [nx.average_clustering(G) for G in graphs]
+    return pd.Series(metrics, index=Gids, name='average_clustering')
+
+def average_shortest_path_length(graphs):
+    """This is an expensive metric to compute.
+    """
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = [nx.average_shortest_path_length(G) for G in graphs]
+    return pd.Series(metrics, index=Gids, name='average_shortest_path_length')
+
+def compute_metrics(x, average_shortest_path_length=False):
     """
         metrics = compute_metrics(dir_path)
         metrics = compute_metrics(list_of_file_paths)
@@ -75,6 +87,9 @@ def compute_metrics(x):
     metrics['degree_assortativity'] = degree_assortativity(graphs)
     metrics['rich_club'] = rich_club(graphs)
     metrics['clustering'] = clustering(graphs)
+    metrics['average_clustering'] = average_clustering(graphs)
+    if average_shortest_path_length:
+        metrics['average_shortest_path_length'] = average_shortest_path_length(graphs)
     return metrics
 
 def check_max_degree(metrics, describe=True):
@@ -195,11 +210,11 @@ def analyze_metrics(metrics, describe=True):
     msg = msg.fillna('')
     return msg
 
-def nesta_v11_representative():
+def nesta_v11_representative(case403=True):
     """Returns a representative sample of 33 NESTA GRG v1.1 networks,
     sorted by size.
     """
-    return [
+    names = [
     'nesta_case13659_pegase',
     'nesta_case9241_pegase',
     'nesta_case6515_rte',
@@ -235,3 +250,6 @@ def nesta_v11_representative():
     'nesta_case4_gs',
     'nesta_case3_lmbd'
     ]
+    if ~case403:
+        names.pop(12)
+    return names
