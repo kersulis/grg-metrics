@@ -24,3 +24,69 @@ def chordal_extension(G):
     Aadj = np.maximum(Aadj, Aadj.T)
     Gchord = nx.from_numpy_matrix(Aadj)
     return Gchord
+
+def clique_graph_spanning_tree(cliques):
+    """Generates a clique graph from the provided chordal
+    graph, then returns a clique graph minimal spanning tree.
+    """
+    n = max([max(c) for c in cliques]) + 1
+
+    # each column of MC represents a clique
+    # with 1s in appropriate bus indices
+    MC = np.zeros((n,len(cliques)))
+    for i, c in enumerate(cliques):
+        MC[list(c),i] = 1
+
+    # cliqueOverlap[i,j] (for i != j) is minus the number of nodes
+    # shared by cliques i and j
+    cliqueOverlap = -MC.T.dot(MC)
+    np.fill_diagonal(cliqueOverlap, 0)
+
+    # cliqueOverlap is a clique adjacency matrix. Gclique is the
+    # corresponding NetworkX graph
+    Gclique = nx.from_numpy_matrix(cliqueOverlap)
+
+    # embed clique node info in clique graph object
+    for i, c in enumerate(cliques):
+        Gclique.node[i] = c
+
+    # Minimum spanning tree, computed via Prim's algorithm.
+    # The mst is the clique graph spanning tree (so it includes
+    # all cliques) with lowest possible edge weights.
+    # By construction, this corresponds to greatest node overlap.
+    return nx.prim_mst(Gclique)
+
+def merge_cost(ci, cj):
+    """Return cost of combining cliques i and j into
+    a new clique, ck. Cost grows with the size of each
+    clique, but drops with clique overlap (fewer linking
+    constraints).
+
+    Inputs are cliques, represented by sets of node
+    indices.
+    """
+    nci = len(ci)
+    ncj = len(cj)
+    nboth = len(ci & cj)
+    nck = len(ci | cj)
+
+    nvars = lambda nc: nc*(2*nc + 1)
+
+    nvarafter = nvars(nck) - nvars(nci) - nvars(nck)
+
+    linkcostbefore = nvars(nboth)
+
+    return nvarafter - linkcostbefore
+
+def sdp_cost(Gmst):
+    """Approximate computational cost as sum of
+    variables and linking constraints.
+    """
+    nvars = lambda nc: nc*(2*nc + 1)
+    # variables for each clique
+    vars_cost = sum([nvars(len(c[1]))
+                     for c in Gmst.nodes_iter(data=True)])
+    # linking constraints
+    link_cost = sum([nvars(-e[2]['weight'])
+                     for e in Gmst.edges_iter(data=True)])
+    return vars_cost + link_cost
