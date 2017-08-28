@@ -56,7 +56,7 @@ def clique_graph_spanning_tree(cliques):
     # By construction, this corresponds to greatest node overlap.
     return nx.prim_mst(Gclique)
 
-def merge_cost(ci, cj):
+def merge_cost(ci, ck):
     """Return cost of combining cliques i and j into
     a new clique, ck. Cost grows with the size of each
     clique, but drops with clique overlap (fewer linking
@@ -65,18 +65,13 @@ def merge_cost(ci, cj):
     Inputs are cliques, represented by sets of node
     indices.
     """
-    nci = len(ci)
-    ncj = len(cj)
-    nboth = len(ci & cj)
-    nck = len(ci | cj)
+    di = len(ci)
+    dk = len(ck)
+    sik = len(ci & ck)
+    dik = len(ci | ck)
 
     nvars = lambda nc: nc*(2*nc + 1)
-
-    nvarafter = nvars(nck) - nvars(nci) - nvars(nck)
-
-    linkcostbefore = nvars(nboth)
-
-    return nvarafter - linkcostbefore
+    return nvars(dik) - nvars(di) - nvars(dk) - nvars(sik)
 
 def sdp_cost(Gmst):
     """Approximate computational cost as sum of
