@@ -4,7 +4,7 @@ import scipy as sp
 from sksparse.cholmod import cholesky
 
 def chordal_extension(G):
-    """Return a chordan extension of G.
+    """Return a chordal extension of `G`.
     Input and output are both NetworkX graphs.
     """
     adj = nx.adjacency_matrix(G)
@@ -25,9 +25,20 @@ def chordal_extension(G):
     Gchord = nx.from_numpy_matrix(Aadj)
     return Gchord
 
-def clique_graph_spanning_tree(cliques):
-    """Generates a clique graph from the provided chordal
+def old_clique_graph_spanning_tree(cliques):
+    """     T = clique_graph_spanning_tree(cliques)
+    Generates a clique graph from the provided chordal
     graph, then returns a clique graph minimal spanning tree.
+    Each node of a clique graph is one of the maximal cliques,
+    and each edge's weight is the number of nodes shared by
+    its endpoint cliques.
+
+    Input:
+    - `cliques`: a list of sets where each set consists of node
+    indices for a maximal clique.
+
+    Output:
+    - `T`: a minimal spanning tree of the clique graph
     """
     n = max([max(c) for c in cliques]) + 1
 
@@ -56,14 +67,50 @@ def clique_graph_spanning_tree(cliques):
     # By construction, this corresponds to greatest node overlap.
     return nx.prim_mst(Gclique)
 
-def merge_cost(ci, ck):
-    """Return cost of combining cliques i and j into
-    a new clique, ck. Cost grows with the size of each
-    clique, but drops with clique overlap (fewer linking
-    constraints).
+def clique_graph_spanning_tree(cliques):
+    """     T = clique_graph_spanning_tree(cliques)
+    Generates a clique graph from the provided chordal
+    graph, then returns a clique graph minimal spanning tree.
+    Each node of a clique graph is one of the maximal cliques,
+    and each edge's weight is minus the number of nodes shared by
+    its endpoint cliques. The minimal spanning tree is the tree
+    with lowest total edge weight, which corresponds to
+    maximum clique overlap by construction.
 
-    Inputs are cliques, represented by sets of node
+    Input:
+    - `cliques`: a list of sets where each set consists of node
+    indices for a maximal clique.
+
+    Output:
+    - `T`: a minimal spanning tree of the clique graph
+    """
+    G = nx.Graph()
+    G.add_nodes_from(cliques)
+
+    nc = len(cliques)
+    for i in range(nc):
+        ci = cliques[i]
+        for j in range(nc):
+            cj = cliques[j]
+            if i != j:
+                o = len(ci & cj)
+                if o > 0:
+                    G.add_edge(ci, cj, weight=-o)
+    return nx.prim_mst(G)
+
+def clique_merge_cost(ci, ck):
+    """     Dik = clique_merge_cost(ci, ck)
+    Return cost of combining cliques ci and ck. Cost
+    grows with the size of each clique, but drops with
+    clique overlap (fewer linking constraints).
+
+    Input:
+    - `ci`, `ck`: cliques represented as sets of node
     indices.
+
+    Output:
+    - `Dik`: change in number of variables (primal + dual)
+    correpsonding to a merge of ci and ck.
     """
     di = len(ci)
     dk = len(ck)
@@ -73,15 +120,138 @@ def merge_cost(ci, ck):
     nvars = lambda nc: nc*(2*nc + 1)
     return nvars(dik) - nvars(di) - nvars(dk) - nvars(sik)
 
-def sdp_cost(Gmst):
-    """Approximate computational cost as sum of
+def sdp_cost_heuristic(T):
+    """     cost = sdp_cost_heuristic(T)
+    Approximate SDP computational cost as sum of
     variables and linking constraints.
+
+    Input
+    - `T`: minimal spanning tree of the clique graph,
+    as a NetworkX graph object.
+
+    Output
+    - `cost`: the total number of scalar variables
+    (real and imag voltage scalars) and dual variables
+    (linking constraints for overlapping cliques).
     """
     nvars = lambda nc: nc*(2*nc + 1)
     # variables for each clique
-    vars_cost = sum([nvars(len(c[1]))
-                     for c in Gmst.nodes_iter(data=True)])
+    vars_cost = sum([nvars(len(c[0]))
+                     for c in T.nodes_iter(data=True)])
     # linking constraints
     link_cost = sum([nvars(-e[2]['weight'])
-                     for e in Gmst.edges_iter(data=True)])
+                     for e in T.edges_iter(data=True)])
     return vars_cost + link_cost
+
+def min_cost_cliques(T):
+    """    ci, ck, min_cost = min_cost_cliques(T)
+    Given a clique graph minimal spanning tree, return
+    the pair of cliques corresponding to the min-cost merge.
+
+    Input:
+    - `T`: minimal spanning tree of the clique graph, as a
+    NetworkX graph object.
+
+    Output:
+    - `ci`, `ck`: the pair of cliques with greatest positive
+    impact on SDP performance (represented by greatest
+    reduction in number of primal and dual variables).
+    """
+    min_cost = np.inf
+    ci = {}
+    ck = {}
+    for idx, e in enumerate(T.edges_iter()):
+        i, k = e
+        cost = clique_merge_cost(i, k)
+        if cost < min_cost:
+            ci, ck = i, k
+            min_cost = cost
+    return ci, ck, min_cost
+
+def clique_merge(cliques):
+    """     M = clique_merge(cliques)
+    Returns linkage (used for generating dendrograms)
+    corresponding to Dan's greedy clique merge algorithm.
+    Also returns merge graph and other data as fields of `M`.
+
+    Input:
+    - `cliques`: list of sets, where each set contains indices
+    of buses in a maximal clique.
+
+    Output:
+    - `M`: dict with fields:
+        - `Z`: linkage matrix. See documentation for
+        scipy.cluster.hierarchy.linkage.
+        - `Gmerge`: NetworkX merge graph for generating
+        Sankey diagrams.
+    """
+    M = {}
+
+    # all_cliques is used for absolute clique references
+    all_cliques = cliques.copy()
+
+    merge_sizes = np.ones(len(cliques))
+
+    # merged_cliques shrinks as cliques are merged
+    # (use this to update clique tree)
+    merged_cliques = cliques.copy()
+
+    Z = np.zeros((len(cliques)-1,4))
+
+    # directed graph for tracking merges
+    Gm = nx.DiGraph()
+    for i in sorted(list(frozenset().union(*cliques))):
+        Gm.add_node(int(i), name='Node ' + str(i+1),
+            nodes=1,
+            type='bus', xPos=0)
+    nbus = int(i + 1)
+    nodeidx = nbus
+    for i, c in enumerate(cliques):
+        Gm.add_node(nodeidx,
+            name='Clique ' + str(nodeidx - nbus + 1),
+            nodes=len(c),
+            type='clique',
+            xPos=1)
+        for b in c:
+            Gm.add_edge(b, nodeidx, value=1)
+        nodeidx += 1
+
+    xPos=2
+    midx = 0 # index of current merge
+    dmax = 0 # largest clique size (increases with merging)
+    nbus = max([max(c) for c in cliques]) + 1
+
+    # clique merging
+    while dmax < nbus:
+        # update clique graph spanning tree
+        T = clique_graph_spanning_tree(merged_cliques)
+        ci, ck, min_cost = min_cost_cliques(T)
+        i, k = all_cliques.index(ci), all_cliques.index(ck)
+        merge_size = sum(merge_sizes[[i,k]])
+        merge_sizes = np.hstack((merge_sizes, merge_size))
+        Z[midx,:] = [i, k, min_cost, merge_size]
+
+        # update clique lists
+        cmerged = ci | ck
+        all_cliques.append(cmerged)
+
+        merged_cliques.remove(ci)
+        merged_cliques.remove(ck)
+        merged_cliques.append(cmerged)
+
+        dmax = max([len(c) for c in merged_cliques])
+        Gm.add_node(nodeidx,
+            name='Merge ' + str(nodeidx - len(cliques) - nbus + 1),
+            nodes=len(cmerged),
+            cost=min_cost,
+            type='merge',
+            xPos=xPos)
+        xPos += 1
+        Gm.add_edge(i + nbus, nodeidx, value=len(ci))
+        Gm.add_edge(k + nbus, nodeidx, value=len(ck))
+        nodeidx += 1
+        midx += 1
+
+    M['linkage'] = Z
+    M['Gmerge'] = Gm
+    return M
