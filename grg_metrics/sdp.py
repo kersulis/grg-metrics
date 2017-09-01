@@ -180,7 +180,7 @@ def clique_merge(cliques):
 
     Output:
     - `M`: dict with fields:
-        - `Z`: linkage matrix. See documentation for
+        - `linkage`: linkage matrix. See documentation for
         scipy.cluster.hierarchy.linkage.
         - `Gmerge`: NetworkX merge graph for generating
         Sankey diagrams.
@@ -201,7 +201,7 @@ def clique_merge(cliques):
     # directed graph for tracking merges
     Gm = nx.DiGraph()
     for i in sorted(list(frozenset().union(*cliques))):
-        Gm.add_node(int(i), name='Node ' + str(i+1),
+        Gm.add_node(int(i), name='Bus ' + str(i+1),
             nodes=1,
             type='bus', xPos=0)
     nbus = int(i + 1)
