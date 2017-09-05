@@ -42,6 +42,16 @@ def average_shortest_path_length(graphs):
     metrics = [nx.average_shortest_path_length(G) for G in graphs]
     return pd.Series(metrics, index=Gids, name='average_shortest_path_length')
 
+def maximal_cliques(graphs):
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = [list(nx.clique.find_cliques(G)) for G in graphs]
+    return pd.Series(metrics, index=Gids, name='maximal_cliques')
+
+def chordal_extension(graphs):
+    Gids = [G.graph['id'] for G in graphs]
+    metrics = [grg_metrics.chordal_extension(G) for G in graphs]
+    return pd.Series(metrics, index=Gids, name='chordal_extension')
+
 def compute_metrics(x, average_shortest_path_length=False):
     """
         metrics = compute_metrics(dir_path)
@@ -88,6 +98,8 @@ def compute_metrics(x, average_shortest_path_length=False):
     metrics['rich_club'] = rich_club(graphs)
     metrics['clustering'] = clustering(graphs)
     metrics['average_clustering'] = average_clustering(graphs)
+    metrics['maximal_cliques'] = maximal_cliques(graphs)
+    metrics['chordal_extension'] = chordal_extension(graphs)
     if average_shortest_path_length:
         metrics['average_shortest_path_length'] = average_shortest_path_length(graphs)
     return metrics
