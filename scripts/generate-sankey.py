@@ -31,7 +31,6 @@ for cname in cnames:
 
     Gchord = grg_metrics.chordal_extension(G)
     cliques = list(nx.chordal_graph_cliques(Gchord))
-    T = grg_metrics.clique_graph_spanning_tree(cliques)
     M = grg_metrics.clique_merge(cliques)
     Gm = M['Gmerge']
 
