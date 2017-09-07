@@ -19,7 +19,7 @@ nesta_folder = '/home/jk/gdrive/GridChar/NESTA_GRGv1.1_PU/'
 out_folder = 'dendrograms/'
 
 # output format
-fmt = 'pdf'
+fmt = '.pdf'
 
 # which cases to generate from
 cnames = grg_metrics.nesta_v11_representative()[-21:28]

@@ -43,4 +43,4 @@ for cname in cnames:
         json.dump(d, f)
     finally:
         f.close()
-        print('Wrote clique merge behavior JSON data to ' + fname)
+        print('Wrote ' + fname)
