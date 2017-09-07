@@ -190,13 +190,17 @@ def clique_merge(cliques):
     # all_cliques is used for absolute clique references
     all_cliques = cliques.copy()
 
-    merge_sizes = np.ones(len(cliques))
-
     # merged_cliques shrinks as cliques are merged
     # (use this to update clique tree)
     merged_cliques = cliques.copy()
 
-    Z = np.zeros((len(cliques)-1,4))
+    ncliques = len(cliques)
+    merge_sizes = np.ones(ncliques)
+
+    Z = np.zeros((ncliques-1,4))
+    sdp_sizes = []
+    linking_constraints = []
+    largest_group = []
 
     # directed graph for tracking merges
     Gm = nx.DiGraph()
@@ -205,16 +209,16 @@ def clique_merge(cliques):
             nodes=1,
             type='bus', xPos=0)
     nbus = int(i + 1)
-    nodeidx = nbus
+    next_node_idx = nbus
     for i, c in enumerate(cliques):
-        Gm.add_node(nodeidx,
-            name='Clique ' + str(nodeidx - nbus + 1),
+        Gm.add_node(next_node_idx,
+            name='Clique ' + str(next_node_idx - nbus + 1),
             nodes=len(c),
             type='clique',
             xPos=1)
         for b in c:
-            Gm.add_edge(b, nodeidx, value=1)
-        nodeidx += 1
+            Gm.add_edge(b, next_node_idx, value=1)
+        next_node_idx += 1
 
     xPos=2
     midx = 0 # index of current merge
@@ -222,36 +226,54 @@ def clique_merge(cliques):
     nbus = max([max(c) for c in cliques]) + 1
 
     # clique merging
-    while dmax < nbus:
+    while len(merged_cliques) >= 1:
         # update clique graph spanning tree
         T = clique_graph_spanning_tree(merged_cliques)
+
+        # record data
+        sdp_sizes.append(sdp_cost_heuristic(T))
+        linking_constraints.append(abs(T.size(weight='weight')))
+        dmax = max([len(c) for c in merged_cliques])
+        largest_group.append(dmax)
+
+        if len(merged_cliques) == 1:
+            # last merge already performed, so only
+            # recording was necessary.
+            break
+
+        # identify best merge
         ci, ck, min_cost = min_cost_cliques(T)
         i, k = all_cliques.index(ci), all_cliques.index(ck)
+
+        # update linkage
         merge_size = sum(merge_sizes[[i,k]])
         merge_sizes = np.hstack((merge_sizes, merge_size))
         Z[midx,:] = [i, k, min_cost, merge_size]
 
-        # update clique lists
+        # update clique lists to reflect merge
         cmerged = ci | ck
         all_cliques.append(cmerged)
-
         merged_cliques.remove(ci)
         merged_cliques.remove(ck)
         merged_cliques.append(cmerged)
 
-        dmax = max([len(c) for c in merged_cliques])
-        Gm.add_node(nodeidx,
-            name='Merge ' + str(nodeidx - len(cliques) - nbus + 1),
+        # update clique merge graph to reflect merge
+        merge_idx = next_node_idx - ncliques - nbus + 1
+        Gm.add_node(next_node_idx,
+            name='Merge %s' % str(merge_idx),
             nodes=len(cmerged),
             cost=min_cost,
             type='merge',
             xPos=xPos)
         xPos += 1
-        Gm.add_edge(i + nbus, nodeidx, value=len(ci))
-        Gm.add_edge(k + nbus, nodeidx, value=len(ck))
-        nodeidx += 1
+        Gm.add_edge(i + nbus, next_node_idx, value=len(ci))
+        Gm.add_edge(k + nbus, next_node_idx, value=len(ck))
+        next_node_idx += 1
         midx += 1
 
     M['linkage'] = Z
     M['Gmerge'] = Gm
+    M['sdp_sizes'] = sdp_sizes
+    M['linking_constraints'] = linking_constraints
+    M['largest_group'] = largest_group
     return M
