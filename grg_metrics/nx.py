@@ -50,6 +50,7 @@ def grg2nx(data, remove_stepup_transformers=False):
     - Edges are taken from both 'ac_line' and 'two_winding_transformer' objects.
     - Unlike iGRG, GRG has no 'status' field, so all buses and lines are included.
     """
+    grg_version = data['grg_version']
     G = nx.Graph()
 
     # embed these properties into networkx graph
@@ -73,6 +74,13 @@ def grg2nx(data, remove_stepup_transformers=False):
         if p in data['network']:
             G.graph[p] = data['network'][p]
 
+    if grg_version == "v.1.5":
+        # dictionary for mapping voltage point IDs to bus IDs
+        vid2bus = {}
+        for identifier, component in walk_components(data['network']['components']):
+            if component['type'] in ['bus', 'busbar', 'logical_bus']:
+                vid2bus[component['link']] = identifier
+
     for identifier, component in walk_components(data['network']['components']):
         if component['type'] in ['bus', 'busbar', 'logical_bus']:
             G.add_node(identifier, type=component['type'])
@@ -80,13 +88,19 @@ def grg2nx(data, remove_stepup_transformers=False):
                 if p in component:
                     G.node[identifier][p] = component[p]
         elif component['type'] == 'ac_line':
-            f, t = component['link_1'], component['link_2']
+            if grg_version == 'v.1.5':
+                f, t = vid2bus[component['link_1']], vid2bus[component['link_2']]
+            else:
+                f, t = component['link_1'], component['link_2']
             G.add_edge(f,t, type=component['type'])
             for p in line_props:
                 if p in component:
                     G.edge[f][t][p] = component[p]
         elif component['type'] == 'two_winding_transformer':
-            f, t = component['link_1'], component['link_2']
+            if grg_version == 'v.1.5':
+                f, t = vid2bus[component['link_1']], vid2bus[component['link_2']]
+            else:
+                f, t = component['link_1'], component['link_2']
             G.add_edge(f,t, type=component['type'])
             transformer_lowside_buses.append(t)
             for p in transformer_props:
