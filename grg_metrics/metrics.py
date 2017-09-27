@@ -106,23 +106,23 @@ def compute_metrics(x, average_shortest_path_length=False):
 
 def check_max_degree(metrics, describe=True):
     """Warning: max. degree greater than 10.
-    Error: max. degree greater than 3.7*log10(x) + 3.4.
+    Error: max. degree greater than 4.22*log10(x) + 3.87.
 
     Input `metrics` must have columns 'max_degree' and 'nodes'.
     """
-    error = metrics.max_degree > 3.7*np.log10(metrics.nodes) + 3.4
+    error = metrics.max_degree > 4.22*np.log10(metrics.nodes) + 3.87
     warning = (metrics.max_degree > 10) & ~error
 
     msg = pd.Series(index=metrics.index)
     for i in msg.index:
         if error.loc[i]:
             if describe:
-                msg.loc[i] = "Error: \'%s\' has maximum degree %d, which is too large for a network with %d nodes." % (i, metrics.max_degree[i], metrics.nodes[i])
+                msg.loc[i] = "Error: \'%s\' has maximum degree %d, which is unusually large for a network with %d nodes." % (i, metrics.max_degree[i], metrics.nodes[i])
             else:
                 msg.loc[i] = "Error"
         elif warning.loc[i]:
             if describe:
-                msg.loc[i] = "Warning: \'%s\' has maximum degree %d. Nodes of such high degree are rare in real power systems." % (i, metrics.max_degree[i])
+                msg.loc[i] = "Warning: \'%s\' has maximum degree %d. Nodes of such high degree are rare in power systems." % (i, metrics.max_degree[i])
             else:
                 msg.loc[i] = "Warning"
     return msg
@@ -168,21 +168,21 @@ def check_median_degree(metrics, describe=True):
     return msg
 
 def check_degree_assortativity(metrics, describe=True):
-    """Warning: outside [-0.3, 0.15].
-    Error: outside [-0.5, 0.3].
+    """Warning: outside [-0.37, 0.18].
+    Error: outside [-0.64, 0.45].
     """
-    error = (metrics.degree_assortativity < -0.5) | (metrics.degree_assortativity > 0.3)
-    warning = (metrics.degree_assortativity < -0.3) | (metrics.degree_assortativity > 0.15) & ~error
+    error = (metrics.degree_assortativity < -0.64) | (metrics.degree_assortativity > 0.45)
+    warning = (metrics.degree_assortativity < -0.37) | (metrics.degree_assortativity > 0.18) & ~error
     msg = pd.Series(index=metrics.index)
     for i in msg.index:
         if error.loc[i]:
             if describe:
-                msg.loc[i] = "Error: \'%s\' has degree assortativity coefficient %.2f, more than 2 standard deviations from the NESTA mean of -0.06." % (i, metrics.degree_assortativity[i])
+                msg.loc[i] = "Error: \'%s\' has degree assortativity coefficient %.2f, more than 2 standard deviations from the mean of -0.1 for 41 test networks." % (i, metrics.degree_assortativity[i])
             else:
                 msg.loc[i] = "Error"
         elif warning.loc[i]:
             if describe:
-                msg.loc[i] = "Warning: \'%s\' has degree assortativity coefficient %.2f, which is at least a standard deviation from the NESTA mean of -0.06." % (i, metrics.degree_assortativity[i])
+                msg.loc[i] = "Warning: \'%s\' has degree assortativity coefficient %.2f, which is over one standard deviation from the mean of -0.1 for 41 test networks." % (i, metrics.degree_assortativity[i])
             else:
                 msg.loc[i] = "Warning"
     return msg
