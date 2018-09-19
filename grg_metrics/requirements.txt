@@ -1,8 +1,4 @@
 grg_grgdata==0.1.1
-scipy==1.1.0
 numpy==1.15.1
 networkx==2.1
 pandas==0.23.4
-scikit_sparse==0.4.3
-matplotlib==3.0.0
-scikit_learn==0.19.2

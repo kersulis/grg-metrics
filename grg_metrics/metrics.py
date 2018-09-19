@@ -1,7 +1,6 @@
 import networkx as nx
 import pandas as pd
 import numpy as np
-import scipy as sp
 import grg_metrics
 
 def node_degree_distribution(graphs, Gids):
@@ -40,25 +39,13 @@ def maximal_cliques(graphs, Gids):
     metrics = [list(nx.clique.find_cliques(G)) for G in graphs]
     return pd.Series(metrics, index=Gids, name='maximal_cliques')
 
-def chordal_extension(graphs, Gids):
-    metrics = [grg_metrics.chordal_extension(G) for G in graphs]
-    return pd.Series(metrics, index=Gids, name='chordal_extension')
-
-def adj_spectral_radius(graphs, Gids):
-    """Largest Eigenvalue of the adjacency matrix. Takes a long time
-    to compute.
-    """
-    metrics = [np.real(sp.sparse.linalg.eigs(nx.adjacency_matrix(G).astype(np.float), k=1)[0][0]) for G in graphs]
-    return pd.Series(metrics, index=Gids, name='adj_spectral_radius')
-
 def fiedler_value(graphs, Gids):
     """Second-smallest Eigenvalue of the graph Laplacian.
     """
     metrics = [nx.algebraic_connectivity(G) for G in graphs]
     return pd.Series(metrics, index=Gids, name='fiedler_value')
 
-def compute_metrics(x, compute_average_shortest_path_length=False, compute_fiedler_value=False, compute_adj_spectral_radius=False,
-compute_chordal_extension=False, compute_maximal_cliques=False):
+def compute_metrics(x, compute_average_shortest_path_length=False, compute_fiedler_value=False, compute_adj_spectral_radius=False, compute_maximal_cliques=False):
     """
         metrics = compute_metrics(dir_path)
         metrics = compute_metrics(list_of_file_paths)
@@ -106,8 +93,6 @@ compute_chordal_extension=False, compute_maximal_cliques=False):
     metrics['average_clustering'] = average_clustering(graphs, Gids)
     if compute_maximal_cliques:
         metrics['maximal_cliques'] = maximal_cliques(graphs, Gids)
-    if compute_chordal_extension:
-        metrics['chordal_extension'] = chordal_extension(graphs, Gids)
     if compute_adj_spectral_radius:
         metrics['adj_spectral_radius'] = adj_spectral_radius(graphs, Gids)
     if compute_fiedler_value:

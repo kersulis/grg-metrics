@@ -65,13 +65,17 @@ msg = grg_metrics.analyze_metrics(metrics)
 
 The input `metrics` is the DataFrame that comes from running `grg_metrics.compute_metrics`, and `msg` is a corresponding DataFrame table of warnings and errors. To replace descriptive warning and error messages with "Warning" and "Error" respectively, add `describe=False` when calling `analyze_metrics`.
 
-## Non-default metrics
-We considered many more metrics than ultimately made it into the final set. These tend to be more computationally demanding and difficult to interpret intuitively. The code for computing this metrics is available in this package; see `sdp.py` and `weighted.py`. You can add these metrics by passing any of the following keyword arguments to `compute_metrics`:
+## Optional metrics
+The following metrics may be computed by passing the indicated keyword argument. They are not computed by default because there are no corresponding thesholds, but they do contain interesting information.
 * [Average shortest path length][shortest]: `compute_average_shortest_path_length=True`
 * [Fiedler value][fiedler]: `compute_fiedler_value=True`
 * [Spectral radius][spectral] of adjacency matrix: `compute_adj_spectral_radius=True`
-* Chordal graph extension via sparse Cholesky factorization: `compute_chordal_extension=True`
 * [Maximal cliques][mc]: `compute_maximal_cliques=True`
+
+## Extended branch
+We considered many more metrics than ultimately made it into the final set. These tend to be more computationally demanding and difficult to interpret intuitively. The code for computing this metrics is available in this package, but you need to check out the `extended` branch. With this branch checked out, see `sdp.py` and `weighted.py`.
+
+Note: the extended branch requires scipy, scikit-learn, and scikit-sparse (for sparse Cholesky factorization). Scikit-sparse tends to be difficult to install, especially on Windows, so this functionality was omitted from the master branch.
 
 ## Testing
 Run `pytest test.py` in the `test` subdirectory.
