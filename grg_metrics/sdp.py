@@ -1,13 +1,15 @@
 import networkx as nx
 import numpy as np
 import scipy as sp
+import scipy.io as sio
 from sksparse.cholmod import cholesky
 
-def chordal_extension(G):
+def chordal_extension(G, sort_nodes=True):
     """Return a chordal extension of `G`.
     Input and output are both NetworkX graphs.
     """
-    adj = nx.adjacency_matrix(G)
+    nodelist = (sorted(G.nodes())) if sort_nodes else None
+    adj = nx.adjacency_matrix(G, nodelist=nodelist)
     n = adj.shape[0]
     diag = sum(adj, 0).todense() + 1
     W = (adj + sp.sparse.spdiags(diag, 0, n, n)).tocsc()
@@ -65,7 +67,7 @@ def old_clique_graph_spanning_tree(cliques):
     # The mst is the clique graph spanning tree (so it includes
     # all cliques) with lowest possible edge weights.
     # By construction, this corresponds to greatest node overlap.
-    return nx.prim_mst(Gclique)
+    return nx.algorithms.minimum_spanning_tree(Gclique)
 
 def clique_graph_spanning_tree(cliques):
     """     T = clique_graph_spanning_tree(cliques)
@@ -96,9 +98,9 @@ def clique_graph_spanning_tree(cliques):
                 o = len(ci & cj)
                 if o > 0:
                     G.add_edge(ci, cj, weight=-o)
-    return nx.prim_mst(G)
+    return nx.algorithms.minimum_spanning_tree(G)
 
-def clique_merge_cost(ci, ck):
+def clique_merge_cost(ci, ck, overlap_only=False):
     """     Dik = clique_merge_cost(ci, ck)
     Return cost of combining cliques ci and ck. Cost
     grows with the size of each clique, but drops with
@@ -118,7 +120,11 @@ def clique_merge_cost(ci, ck):
     dik = len(ci | ck)
 
     nvars = lambda nc: nc*(2*nc + 1)
-    return nvars(dik) - nvars(di) - nvars(dk) - nvars(sik)
+    if overlap_only:
+        delta = -nvars(sik)
+    else:
+        delta = nvars(dik) - nvars(di) - nvars(dk) - nvars(sik)
+    return delta
 
 def sdp_cost_heuristic(T):
     """     cost = sdp_cost_heuristic(T)
@@ -137,13 +143,13 @@ def sdp_cost_heuristic(T):
     nvars = lambda nc: nc*(2*nc + 1)
     # variables for each clique
     vars_cost = sum([nvars(len(c[0]))
-                     for c in T.nodes_iter(data=True)])
+                     for c in T.nodes(data=True)])
     # linking constraints
     link_cost = sum([nvars(-e[2]['weight'])
-                     for e in T.edges_iter(data=True)])
+                     for e in T.edges(data=True)])
     return vars_cost + link_cost
 
-def min_cost_cliques(T):
+def min_cost_cliques(T, overlap_only=False):
     """    ci, ck, min_cost = min_cost_cliques(T)
     Given a clique graph minimal spanning tree, return
     the pair of cliques corresponding to the min-cost merge.
@@ -160,15 +166,15 @@ def min_cost_cliques(T):
     min_cost = np.inf
     ci = {}
     ck = {}
-    for idx, e in enumerate(T.edges_iter()):
+    for idx, e in enumerate(T.edges()):
         i, k = e
-        cost = clique_merge_cost(i, k)
+        cost = clique_merge_cost(i, k, overlap_only=overlap_only)
         if cost < min_cost:
             ci, ck = i, k
             min_cost = cost
     return ci, ck, min_cost
 
-def clique_merge(cliques):
+def clique_merge(cliques, overlap_only=False):
     """     M = clique_merge(cliques)
     Returns linkage (used for generating dendrograms)
     corresponding to Dan's greedy clique merge algorithm.
@@ -194,6 +200,9 @@ def clique_merge(cliques):
     # (use this to update clique tree)
     merged_cliques = cliques.copy()
 
+    # intermediate_states stores each intermediate decomposition
+    intermediate_states = [[list(ci) for ci in cliques]]
+
     ncliques = len(cliques)
     merge_sizes = np.ones(ncliques)
 
@@ -201,6 +210,7 @@ def clique_merge(cliques):
     sdp_sizes = []
     linking_constraints = []
     largest_group = []
+    smallest_group = []
 
     # directed graph for tracking merges
     Gm = nx.DiGraph()
@@ -233,8 +243,11 @@ def clique_merge(cliques):
         # record data
         sdp_sizes.append(sdp_cost_heuristic(T))
         linking_constraints.append(abs(T.size(weight='weight')))
-        dmax = max([len(c) for c in merged_cliques])
+        clique_sizes = [len(c) for c in merged_cliques]
+        dmax = max(clique_sizes)
+        dmin = min(clique_sizes)
         largest_group.append(dmax)
+        smallest_group.append(dmin)
 
         if len(merged_cliques) == 1:
             # last merge already performed, so only
@@ -242,7 +255,7 @@ def clique_merge(cliques):
             break
 
         # identify best merge
-        ci, ck, min_cost = min_cost_cliques(T)
+        ci, ck, min_cost = min_cost_cliques(T, overlap_only=overlap_only)
         i, k = all_cliques.index(ci), all_cliques.index(ck)
 
         # update linkage
@@ -256,6 +269,7 @@ def clique_merge(cliques):
         merged_cliques.remove(ci)
         merged_cliques.remove(ck)
         merged_cliques.append(cmerged)
+        intermediate_states.append([list(ci) for ci in merged_cliques])
 
         # update clique merge graph to reflect merge
         merge_idx = next_node_idx - ncliques - nbus + 1
@@ -276,4 +290,49 @@ def clique_merge(cliques):
     M['sdp_sizes'] = sdp_sizes
     M['linking_constraints'] = linking_constraints
     M['largest_group'] = largest_group
+    M['smallest_group'] = smallest_group
+    M['intermediate_states'] = intermediate_states
+    return M
+
+def import_matlab_merge_data(matfile):
+    d = sio.loadmat(matfile)
+    decompositions, mosektimes = d['decompositions'].flatten(), d['mosektimes']
+
+    idx = []
+    for i in range(len(decompositions)):
+        if decompositions[i].size > 0:
+            idx.append(i)
+
+    linking_constraints = []
+    sdp_sizes = []
+    largest_group = []
+    mean_group = []
+    smallest_group = []
+
+    for i in range(len(decompositions)):
+        if i in idx:
+            cliques = [frozenset(list(d.flatten())) for d in decompositions[i].flatten()]
+            group_sizes = [len(c) for c in cliques]
+            dmax = max(group_sizes)
+            dmean = np.mean(group_sizes)
+            dmin = np.min(group_sizes)
+            T = clique_graph_spanning_tree(cliques)
+            sdp_sizes.append(sdp_cost_heuristic(T))
+            linking_constraints.append(abs(T.size(weight='weight')))
+            largest_group.append(dmax)
+            mean_group.append(dmean)
+            smallest_group.append(dmin)
+        else:
+            sdp_sizes.append(np.nan)
+            linking_constraints.append(None)
+            largest_group.append(None)
+
+    M = dict()
+    M['sdp_sizes'] = np.array(sdp_sizes)
+    M['linking_constraints'] = np.array(linking_constraints)
+    M['largest_group'] = np.array(largest_group)
+    M['mean_group'] = np.array(mean_group)
+    M['smallest_group'] = np.array(smallest_group)
+    M['mosek_times'] = mosektimes
+    M['idx'] = np.array(idx)
     return M

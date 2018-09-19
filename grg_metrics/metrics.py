@@ -1,58 +1,64 @@
 import networkx as nx
 import pandas as pd
 import numpy as np
+import scipy as sp
 import grg_metrics
 
-def node_degree_distribution(graphs):
-    Gids = [G.graph['id'] for G in graphs]
-    metrics = [np.flipud(np.sort(np.array(list(nx.degree(G).values()))))
+def node_degree_distribution(graphs, Gids):
+    metrics = [np.flipud(np.sort(np.array(list(dict(nx.degree(G)).values()))))
                for G in graphs]
     return pd.Series(metrics, index=Gids, name='node_degree_distribution')
 
-def degree_assortativity(graphs):
-    Gids = [G.graph['id'] for G in graphs]
+def degree_assortativity(graphs, Gids):
     metrics = [nx.degree_assortativity_coefficient(G) for G in graphs]
     return pd.Series(metrics, index=Gids, name='degree_assortativity')
 
-def rich_club(graphs):
-    Gids = [G.graph['id'] for G in graphs]
+def rich_club(graphs, Gids):
     metrics = [nx.rich_club_coefficient(G, normalized=False) for G in graphs]
     return pd.Series(metrics, index=Gids, name='rich_club')
 
-def load_centrality(graphs):
-    Gids = [G.graph['id'] for G in graphs]
+def load_centrality(graphs, Gids):
     metrics = [nx.load_centrality(G) for G in graphs]
     return pd.Series(metrics, index=Gids, name='load_centrality')
 
-def clustering(graphs):
-    Gids = [G.graph['id'] for G in graphs]
+def clustering(graphs, Gids):
     metrics = [np.flipud(np.sort(np.array(list(nx.clustering(G).values()))))
                for G in graphs]
     return pd.Series(metrics, index=Gids, name='node_degree_distribution')
 
-def average_clustering(graphs):
-    Gids = [G.graph['id'] for G in graphs]
+def average_clustering(graphs, Gids):
     metrics = [nx.average_clustering(G) for G in graphs]
     return pd.Series(metrics, index=Gids, name='average_clustering')
 
-def average_shortest_path_length(graphs):
+def average_shortest_path_length(graphs, Gids):
     """This is an expensive metric to compute.
     """
-    Gids = [G.graph['id'] for G in graphs]
     metrics = [nx.average_shortest_path_length(G) for G in graphs]
     return pd.Series(metrics, index=Gids, name='average_shortest_path_length')
 
-def maximal_cliques(graphs):
-    Gids = [G.graph['id'] for G in graphs]
+def maximal_cliques(graphs, Gids):
     metrics = [list(nx.clique.find_cliques(G)) for G in graphs]
     return pd.Series(metrics, index=Gids, name='maximal_cliques')
 
-def chordal_extension(graphs):
-    Gids = [G.graph['id'] for G in graphs]
+def chordal_extension(graphs, Gids):
     metrics = [grg_metrics.chordal_extension(G) for G in graphs]
     return pd.Series(metrics, index=Gids, name='chordal_extension')
 
-def compute_metrics(x, average_shortest_path_length=False):
+def adj_spectral_radius(graphs, Gids):
+    """Largest Eigenvalue of the adjacency matrix. Takes a long time
+    to compute.
+    """
+    metrics = [np.real(sp.sparse.linalg.eigs(nx.adjacency_matrix(G).astype(np.float), k=1)[0][0]) for G in graphs]
+    return pd.Series(metrics, index=Gids, name='adj_spectral_radius')
+
+def fiedler_value(graphs, Gids):
+    """Second-smallest Eigenvalue of the graph Laplacian.
+    """
+    metrics = [nx.algebraic_connectivity(G) for G in graphs]
+    return pd.Series(metrics, index=Gids, name='fiedler_value')
+
+def compute_metrics(x, compute_average_shortest_path_length=False, compute_fiedler_value=False, compute_adj_spectral_radius=False,
+compute_chordal_extension=False, compute_maximal_cliques=False):
     """
         metrics = compute_metrics(dir_path)
         metrics = compute_metrics(list_of_file_paths)
@@ -90,18 +96,24 @@ def compute_metrics(x, average_shortest_path_length=False):
     labels = ['tiny', 'small', 'medium', 'large']
     size_groups = pd.cut(metrics.nodes, bins, labels=labels)
     metrics['size'] = size_groups
-    metrics['node_degree_distribution'] = node_degree_distribution(graphs)
+    metrics['node_degree_distribution'] = node_degree_distribution(graphs, Gids)
     metrics['max_degree'] = metrics['node_degree_distribution'].apply(max)
     metrics['mean_degree'] = metrics['node_degree_distribution'].apply(np.mean)
     metrics['median_degree'] = metrics['node_degree_distribution'].apply(np.median)
-    metrics['degree_assortativity'] = degree_assortativity(graphs)
-    metrics['rich_club'] = rich_club(graphs)
-    metrics['clustering'] = clustering(graphs)
-    metrics['average_clustering'] = average_clustering(graphs)
-    metrics['maximal_cliques'] = maximal_cliques(graphs)
-    metrics['chordal_extension'] = chordal_extension(graphs)
-    if average_shortest_path_length:
-        metrics['average_shortest_path_length'] = average_shortest_path_length(graphs)
+    metrics['degree_assortativity'] = degree_assortativity(graphs, Gids)
+    metrics['rich_club'] = rich_club(graphs, Gids)
+    metrics['clustering'] = clustering(graphs, Gids)
+    metrics['average_clustering'] = average_clustering(graphs, Gids)
+    if compute_maximal_cliques:
+        metrics['maximal_cliques'] = maximal_cliques(graphs, Gids)
+    if compute_chordal_extension:
+        metrics['chordal_extension'] = chordal_extension(graphs, Gids)
+    if compute_adj_spectral_radius:
+        metrics['adj_spectral_radius'] = adj_spectral_radius(graphs, Gids)
+    if compute_fiedler_value:
+        metrics['fiedler_value'] = fiedler_value(graphs, Gids)
+    if compute_average_shortest_path_length:
+        metrics['average_shortest_path_length'] = average_shortest_path_length(graphs, Gids)
     return metrics
 
 def check_max_degree(metrics, describe=True):
@@ -198,7 +210,7 @@ def check_rich_club(metrics, describe=True):
         K08 = [k for k, v in rc.items() if v >= 0.8]
         if K08:
             K08_mins.append(np.min(K08))
-            rc_nodes.iloc[i] = sum(metrics.node_degree_distribution[i] >= np.min(K08))
+            rc_nodes.iloc[i] = sum(metrics.node_degree_distribution[i] > np.min(K08))
         else:
             K08_mins.append(0)
             rc_nodes.iloc[i] = 0

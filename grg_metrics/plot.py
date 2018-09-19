@@ -17,7 +17,7 @@ def draw_graph_lines(buses, positions, G):
     """
     segments = []
     voltages = np.zeros(len(G.edges()))
-    for i, e in enumerate(G.edges_iter(data=True)):
+    for i, e in enumerate(G.edges(data=True)):
         fidx, tidx = buses.index(e[0]), buses.index(e[1])
         segments.append([positions[fidx, :], positions[tidx, :]])
         fv = G.graph['voltage_levels'][e[2]['voltage_level_1_id']]['nominal_value']

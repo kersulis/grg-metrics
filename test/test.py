@@ -116,4 +116,4 @@ def test_data():
     ]
     assert G.node['bus_002']['id'] == 'bus_2'
     assert len(G.edges()) == 179
-    assert G.edge['bus_005']['bus_003']['voltage_level_1_id'] == 'voltage_level_3'
+    assert G['bus_005']['bus_003']['voltage_level_1_id'] == 'voltage_level_3'
