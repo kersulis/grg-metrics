@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import grg_metrics
+import grg_grgdata
 
 def getY(grg_data, dc=False):
     """Given a GRGv1.0 JSON document, return the admittance matrix.
@@ -115,7 +116,7 @@ def get_Ybus_vectors(grg_data):
 
         return f, t, Zs, b1, b2, tap, shift
 
-    lines  = {k:v for k,v in grg_metrics.walk_components(grg_data['network']['components'])
+    lines  = {k:v for k,v in grg_grgdata.cmd.walk_components(grg_data)
               if (v['type'] == 'ac_line') | (v['type'] == 'two_winding_transformer')}
     d = [extract_ftzb(line) for line_id, line in lines.items()]
 
@@ -142,7 +143,7 @@ def get_shunt(grg_data, buses):
     """
     shunt_buses = []
     shunts = []
-    for cid, c in grg_metrics.walk_components(grg_data['network']['components']):
+    for cid, c in grg_grgdata.cmd.walk_components(grg_data):
         if c['type'] == 'shunt':
             shunt_buses.append(c['link'])
             shunts.append(c['shunt']['conductance'] + 1j*c['shunt']['susceptance'])

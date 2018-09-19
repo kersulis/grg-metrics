@@ -6,7 +6,7 @@ def return_generator_buses(grg_data):
     attached generators.
     """
     generator_buses = []
-    for identifier, component in grg_metrics.walk_components(grg_data['network']['components']):
+    for identifier, component in grg_grgdata.cmd.walk_components(grg_data):
         if component['type'] == 'generator':
             generator_buses.append(component['link'])
     return generator_buses
