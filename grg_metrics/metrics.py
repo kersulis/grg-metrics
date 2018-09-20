@@ -262,3 +262,54 @@ def nesta_v11_representative(case403=True):
     if ~case403:
         names.pop(12)
     return names
+
+def pglib_representative():
+    """Returns a representative sample of 33 PGLIB networks,
+    sorted by size.
+    """
+    names = [
+    'pglib_opf_case13659_pegase',
+    'pglib_opf_case10000_tamu',
+    'pglib_opf_case9241_pegase',
+    'pglib_opf_case6515_rte',
+    'pglib_opf_case4661_sdet',
+    'pglib_opf_case3120sp_k',
+    'pglib_opf_case2869_pegase',
+    'pglib_opf_case2868_rte',
+    'pglib_opf_case2853_sdet',
+    'pglib_opf_case2736sp_k',
+    'pglib_opf_case2383wp_k',
+    'pglib_opf_case2316_sdet',
+    # 'pglib_opf_case2224_edin',
+    'pglib_opf_case2000_tamu',
+    'pglib_opf_case1951_rte',
+    # 'pglib_opf_case1397sp_eir',
+    'pglib_opf_case1354_pegase',
+    # 'pglib_opf403_rte',
+    'pglib_opf_case588_sdet',
+    'pglib_opf_case500_tamu',
+    'pglib_opf_case300_ieee',
+    'pglib_opf_case240_pserc',
+    # 'pglib_opf_case189_edin',
+    'pglib_opf_case200_tamu',
+    'pglib_opf_case179_goc',
+    'pglib_opf_case162_ieee_dtc',
+    'pglib_opf_case118_ieee',
+    'pglib_opf_case89_pegase',
+    'pglib_opf_case73_ieee_rts',
+    'pglib_opf_case57_ieee',
+    'pglib_opf_case39_epri',
+    'pglib_opf_case30_fsr',
+    # 'pglib_opf_case30_as',
+    'pglib_opf_case30_ieee',
+    # 'pglib_opf_case29_edin',
+    'pglib_opf_case24_ieee_rts',
+    'pglib_opf_case14_ieee',
+    # 'pglib_opf_case9_wscc',
+    # 'pglib_opf_case6_ww',
+    # 'pglib_opf_case6_c',
+    'pglib_opf_case5_pjm',
+    # 'pglib_opf_case4_gs',
+    'pglib_opf_case3_lmbd'
+    ]
+    return names
